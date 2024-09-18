@@ -12,8 +12,8 @@ contract FundMe {
     using PriceConverter for uint256;
 
     
-    mapping(address => uint256) public addressToAmountFunded;
-    address[] public funders;
+    mapping(address => uint256) private s_addressToAmountFunded;
+    address[] private s_funders;
 
     address public immutable i_owner;
     uint256 public constant MINIMUM_USD = 5 * 1e18;
@@ -26,8 +26,9 @@ contract FundMe {
 
     function fund() public payable {
         require(msg.value.getConversionRate(s_priceFeed) >= MINIMUM_USD, "You did not send enough ETH");  // 1e18 = 1 ETH = 1000000000000000000
-        funders.push(msg.sender);
-        addressToAmountFunded[msg.sender] = addressToAmountFunded[msg.sender] + msg.value;
+
+        s_addressToAmountFunded[msg.sender] += msg.value;
+        s_funders.push(msg.sender);
 
         // Reverts undo any actions that have been done, and send the remaining gas back
 
@@ -40,12 +41,12 @@ contract FundMe {
     function withdraw() public onlyOwner {
         // for loop
         // for(/* starting index, ending index, step amount */)
-        for(uint256 funderIndex = 0; funderIndex < funders.length; funderIndex++){
-            address funder = funders[funderIndex];
-            addressToAmountFunded[funder] = 0;
+        for(uint256 funderIndex = 0; funderIndex < s_funders.length; funderIndex++){
+            address funder = s_funders[funderIndex];
+            s_addressToAmountFunded[funder] = 0;
         }
         // reset the array
-        funders = new address[](0);
+        s_funders = new address[](0);
         // actually withdraw the funds
 
         // // transfer
@@ -67,11 +68,27 @@ contract FundMe {
         // _; // This means run the rest of the code
     }
 
+    fallback() external payable {
+        fund();
+      }
+
     receive() external payable {
         fund();
      }
 
-     fallback() external payable {
-        fund();
-      }
+     /**
+      * View / Pure functions (Getters)
+      */
+
+    function getAddressToAmountFunded(
+        address fundingAddress
+    ) external view returns (uint256) {
+        return s_addressToAmountFunded[fundingAddress];
+    }
+
+    function getFundeder(uint256 index) external view returns (address) {
+        return s_funders[index];
+    }
+
+    
 }
